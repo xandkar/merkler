@@ -1,0 +1,13 @@
+{application, merkler, [
+    {description, ""},
+    {vsn, "0.0.0"},
+    {registered, []},
+    {applications, [
+        kernel,
+        stdlib
+    ]},
+    {env, []},
+    {modules, []},
+    {licenses, ["GNU GPL 3"]},
+    {links, []}
+ ]}.
