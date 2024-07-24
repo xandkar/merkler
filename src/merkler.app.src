@@ -8,6 +8,8 @@
     ]},
     {env, []},
     {modules, []},
-    {licenses, ["GNU GPL 3"]},
-    {links, []}
+    {licenses, ["GNU GPL v3"]},
+    {links, [
+      {"GitHub", "https://github.com/xandkar/merkler"}
+    ]}
  ]}.
