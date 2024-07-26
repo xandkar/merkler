@@ -17,8 +17,9 @@
 -spec tree([binary()]) -> tree().
 tree([_|_]=Leaves0) ->
     N = length(Leaves0),
-    Leaves1 = Leaves0 ++ lists:duplicate(next_pow_of_2(N) - N, <<>>),
-    lists:reverse([Leaves1 | levels_up(Leaves1)]).
+    Leaves1 = Leaves0 ++ lists:duplicate(max(2, next_pow_of_2(N)) - N, <<>>),
+    Leaves2 = [hash(L, <<>>) || L <- Leaves1],
+    lists:reverse([Leaves2 | levels_up(Leaves2)]).
 
 -spec root(tree()) -> binary().
 root([[Root] | _]) -> Root.
@@ -26,7 +27,6 @@ root([[Root] | _]) -> Root.
 %% Minimal subtree which converges on the same root as original.
 -spec proof(pos_integer(), tree()) -> tree().
 proof(LeafPos, Tree) ->
-    % TODO Do we really want to include leaves?
     {_, Proof} =
         lists:foldl(
             fun(Level, {Pos, Proof}) ->
@@ -124,95 +124,110 @@ merkle_test_() ->
     E = <<"e">>,
     F = <<"f">>,
     H = fun hash/2,
+    H__ = H(<<>>, <<>>),
+    H_A = H(A, <<>>),
+    H_B = H(B, <<>>),
+    H_C = H(C, <<>>),
+    H_D = H(D, <<>>),
+    H_E = H(E, <<>>),
+    H_F = H(F, <<>>),
+    H_AB = H(H_A, H_B),
+    H_CD = H(H_C, H_D),
+    H_EF = H(H_E, H_F),
+    H_ABCD = H(H_AB, H_CD),
     Tests =
         % A
         (fun() ->
-            H_A = H(A, <<>>),
-            L0 = [A, <<>>],
-            L1 = [H_A],
-            T = [L1, L0],
+            H_A_ = H(H_A, H__),
+            L0 = [A],
+            L1 = [H_A, H__],
+            L2 = [H_A_],
+            R = H_A_,
+            T = [L2, L1],
             [
-                ?_assertEqual(L1, level_up(L0)),
-                ?_assertEqual([L1], levels_up(L0)),
-                ?_assertEqual(T, tree(L0))
+                ?_assertEqual(L2, level_up(L1)),
+                ?_assertEqual([L2], levels_up(L1)),
+                ?_assertEqual(T, tree(L0)),
+                ?_assertEqual(R, root(T))
             ]
         end)()
         ++
         % AB
         (fun() ->
-            H_AB = H(A, B),
             L0 = [A, B],
-            L1 = [H_AB],
-            T = [L1, L0],
+            L1 = [H_A, H_B],
+            L2 = [H_AB],
+            R = H_AB,
+            T = [L2, L1],
             [
-                ?_assertEqual(L1, level_up(L0)),
-                ?_assertEqual(T, tree(L0))
+                ?_assertEqual(L2, level_up(L1)),
+                ?_assertEqual(T, tree(L0)),
+                ?_assertEqual(R, root(T))
             ]
         end)()
         ++
         % ABC
         (fun() ->
-            H_AB = H(A, B),
-            H_C = H(C, <<>>),
-            H_ABC = H(H_AB, H_C),
-            L0 = [A, B, C, <<>>],
-            L1 = [H_AB, H_C],
-            L2 = [H_ABC],
-            T = [L2, L1, L0],
+            H_C_ = H(H_C, H__),
+            H_ABC_ = H(H_AB, H_C_),
+            L0 = [A, B, C],
+            L1 = [H_A, H_B, H_C, H__],
+            L2 = [H_AB, H_C_],
+            L3 = [H_ABC_],
+            R = H_ABC_,
+            T = [L3, L2, L1],
             [
-                ?_assertEqual(L1, level_up(L0)),
                 ?_assertEqual(L2, level_up(L1)),
-                ?_assertEqual(T, tree(L0))
+                ?_assertEqual(L3, level_up(L2)),
+                ?_assertEqual(T, tree(L0)),
+                ?_assertEqual(R, root(T))
             ]
         end)()
         ++
         % ABCD
         (fun() ->
-            H_AB = H(A, B),
-            H_CD = H(C, D),
-            H_ABCD = H(H_AB, H_CD),
             L0 = [A, B, C, D],
-            L1 = [H_AB, H_CD],
-            L2 = [H_ABCD],
-            T = [L2, L1, L0],
+            L1 = [H_A, H_B, H_C, H_D],
+            L2 = [H_AB, H_CD],
+            L3 = [H_ABCD],
+            R = H_ABCD,
+            T = [L3, L2, L1],
             [
-                ?_assertEqual(L1, level_up(L0)),
                 ?_assertEqual(L2, level_up(L1)),
-                ?_assertEqual(T, tree(L0))
+                ?_assertEqual(L3, level_up(L2)),
+                ?_assertEqual(T, tree(L0)),
+                ?_assertEqual(R, root(T))
             ]
         end)()
         ++
         % ABCDEF
         (fun() ->
-            H_AB = H(A, B),
-            H_CD = H(C, D),
-            H_EF = H(E, F),
-            H___ = H(<<>>, <<>>),
+            H___ = H(H__, H__),
             H_EF__ = H(H_EF, H___),
-            H_ABCD = H(H_AB, H_CD),
-            H_ABCDEF = H(H_ABCD, H_EF__),
-            L0 = [A, B, C, D, E, F, <<>>, <<>>],
-            L1 = [H_AB, H_CD, H_EF, H___],
-            L2 = [H_ABCD, H_EF__],
-            L3 = [H_ABCDEF],
-            R = H_ABCDEF,
-            T = [L3, L2, L1, L0],
+            H_ABCDEF__ = H(H_ABCD, H_EF__),
+            L0 = [A, B, C, D, E, F],
+            L1 = [H_A, H_B, H_C, H_D, H_E, H_F, H__, H__],
+            L2 = [H_AB, H_CD, H_EF, H___],
+            L3 = [H_ABCD, H_EF__],
+            L4 = [H_ABCDEF__],
+            R = H_ABCDEF__,
+            T = [L4, L3, L2, L1],
 
-            P1 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_AB, H_CD], [A, B]],
-            P2 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_AB, H_CD], [A, B]],
+            P1 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_AB, H_CD], [H_A, H_B]],
+            P2 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_AB, H_CD], [H_A, H_B]],
 
-            P3 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_AB, H_CD], [C, D]],
-            P4 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_AB, H_CD], [C, D]],
+            P3 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_AB, H_CD], [H_C, H_D]],
+            P4 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_AB, H_CD], [H_C, H_D]],
 
-            P5 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_EF, H___], [E, F]],
-            P6 = [[H_ABCDEF], [H_ABCD, H_EF__], [H_EF, H___], [E, F]],
+            P5 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_EF, H___], [H_E, H_F]],
+            P6 = [[H_ABCDEF__], [H_ABCD, H_EF__], [H_EF, H___], [H_E, H_F]],
 
-            P6B = [[H_ABCDEF], [H_ABCD, <<1>>], [H_EF, H___], [E, F]],
+            P6B = [[H_ABCDEF__], [H_ABCD, <<1>>], [H_EF, H___], [H_E, H_F]],
 
             [
-                ?_assertEqual(L1, level_up(L0)),
                 ?_assertEqual(L2, level_up(L1)),
                 ?_assertEqual(L3, level_up(L2)),
+                ?_assertEqual(L4, level_up(L3)),
                 ?_assertEqual(T, tree(L0)),
 
                 ?_assertEqual(P1, proof(1, T)),
